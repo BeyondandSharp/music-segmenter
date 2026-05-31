@@ -1,0 +1,132 @@
+# ============================================================
+#  SongExtractor 配置文件
+#  命令行参数会覆盖此文件中对应的值。
+# ============================================================
+
+# ── inaSpeechSegmenter 参数 ──────────────────────────────────
+segmenter:
+  # 推理批大小：8GB VRAM 推荐 256，低显存机器用 32
+  batch_size: 256
+  # 静音判断能量比：调大会把弱音当静音，调小会漏静音
+  energy_ratio: 0.03
+  # 单次最大处理时长（秒）；超过此值会自动分块处理
+  # 1G 内存推荐 600，16G 以上可以用 18000（5h）
+  max_segment_length: 40000
+
+# ── 音乐片段提取参数 ──────────────────────────────────────────
+extraction:
+  # 初筛最小音乐段时长（秒）：调大会漏短歌，调小会多杂谈
+  seg_thres: 60
+  # 终筛最小音乐段时长（秒）：调大会漏 TV size，调小会多杂谈
+  seg_thres_final: 80
+  # 相邻音乐段合并间隔阈值（秒）：调大会合并两首歌，调小会碎片化
+  seg_connect: 5
+  # 片段前端扩展（秒）：避免漏掉开头
+  start_padding: 1
+  # 片段后端扩展（秒）：避免漏掉结尾
+  end_padding: 4
+
+# ── YAMNet 人声/纯音乐分类 ────────────────────────────────────
+yamnet:
+  # 是否启用 YAMNet 分类（输出文件名附加 _singing / _music 后缀）
+  enabled: false
+  # 综合演唱类别分数阈值：低于此值标记为 music，高于标记为 singing
+  singing_threshold: 0.01
+  # YAMNet 使用的 AudioSet 演唱相关类别关键字
+  singing_class_keywords:
+    - singing
+    - choir
+    - vocal music
+    - a capella
+    - opera
+    - chant
+    - humming
+    - yodeling
+    - mantra
+    - child singing
+    - synthetic singing
+
+# ── 边界精化（Silero VAD / pyannote.audio）─────────────────────
+boundary:
+  # 是否启用边界精化
+  enabled: false
+  # 使用的引擎：silero 或 pyannote
+  engine: silero
+  # 在原始边界附近搜索更精确切点的窗口大小（秒，双向）
+  search_window: 8
+  # 最短静音间隙（秒）：短于此长度的静音不作为切点
+  min_silence_duration: 0.3
+  # 对齐策略：nearest（最近静音）/ start_of_silence（静音开始处）
+  align: nearest
+  # pyannote.audio 专用：HuggingFace access token（需接受模型许可协议）
+  pyannote_token: ""
+  # Silero VAD 模型下载源（留空使用默认 snakers4/silero-vad）
+  silero_repo: "snakers4/silero-vad"
+
+# ── 输出 ─────────────────────────────────────────────────────
+output:
+  # 仅导出音频（MP3 320k）；false 时导出原始流（视频或音频）
+  soundonly: false
+  # 完成后删除原始媒体文件
+  cleanup: false
+
+# ── Shazam 识歌 ───────────────────────────────────────────────
+shazam:
+  # 是否启用 Shazam 识歌（识别后重命名文件）
+  enabled: true
+  # 识别优先级：数值越大越先运行，高优先级识别成功后跳过后续引擎
+  priority: 50
+  # 封面保存目录；为空时不保存封面
+  coverart_dir: ""
+  # 在音频的以下相对位置各取一段进行识别（0.0~1.0，比例值）
+  sample_positions: [0.10, 0.50, 0.90]
+  # 每段采样时长（秒）
+  sample_length: 12
+
+# ── ACRCloud 识歌 ─────────────────────────────────────────────
+acrcloud:
+  # 是否启用 ACRCloud 识歌（识别后重命名文件）
+  enabled: true
+  # 识别优先级：数值越大越先运行，高优先级识别成功后跳过后续引擎
+  priority: 60
+  # ACRCloud 控制台 → 项目 → Host
+  host: "identify-ap-southeast-1.acrcloud.com"
+  # ACRCloud 控制台 → 项目 → Access Key
+  access_key: ""
+  # ACRCloud 控制台 → 项目 → Access Secret
+  access_secret: ""
+  # 请求超时（秒）
+  timeout: 10
+  # 在音频的以下相对位置各取一段进行识别（0.0~1.0，比例值）
+  sample_positions: [0.10, 0.50, 0.90]
+  # 每段采样时长（秒）
+  sample_length: 10
+
+# ── AudD 识歌 ─────────────────────────────────────────────────
+audd:
+  # 是否启用 AudD 识歌（识别后重命名文件）
+  enabled: true
+  # 识别优先级：数值越大越先运行，高优先级识别成功后跳过后续引擎
+  priority: 40
+  # AudD API Token（dashboard.audd.io 获取；留空使用 "test" 免费额度 10次/天）
+  api_token: ""
+  # 在音频的以下相对位置各取一段进行识别（0.0~1.0，比例值）
+  # audd 每段须在 5~25 秒之间
+  sample_positions: [0.10, 0.50, 0.90]
+  # 每段采样时长（秒），建议 10~20
+  sample_length: 12
+
+# ── AcoustID 识歌 ──────────────────────────────────────────────
+acoustid:
+  # 是否启用 AcoustID 识歌（识别后重命名文件）
+  enabled: true
+  # 识别优先级：数值越大越先运行，高优先级识别成功后跳过后续引擎
+  priority: 30
+  # acoustid.org 注册后免费获取的 API Key
+  api_key: ""
+  # 在音频的以下相对位置各取一段进行识别（0.0~1.0，比例值）
+  sample_positions: [0.10, 0.50, 0.90]
+  # 每段采样时长（秒）；AcoustID 建议 ≥20s，30s 准确率更高
+  sample_length: 30
+  # 最低置信分数（0.0~1.0）；低于此值视为无效匹配
+  min_score: 0.70

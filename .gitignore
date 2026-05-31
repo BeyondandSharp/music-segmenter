@@ -2,16 +2,5 @@
 __pycache__
 *.pyc
 
-cookies.json
-
-inaupload
-!inaupload/inaupload.md
-
-*.sqlite
 *.log
-ytdlp_cookies.txt
-save.yaml
-*.old
-.ipynb_checkpoints/Untitled-checkpoint.ipynb
-Untitled.ipynb
-test.py
+config.yaml

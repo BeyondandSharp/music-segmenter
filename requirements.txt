@@ -1,10 +1,11 @@
-yt-dlp
+inaSpeechSegmenter
 shazamio
+pydub
+pyacrcloud
+audd
+pyacoustid
 pyyaml
 filelock
-jupyter
-regex
-requests
-celery
-sqlalchemy==1.4.46
 scikit-image
+regex
+tensorflow-hub

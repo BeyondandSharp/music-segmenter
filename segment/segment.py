@@ -27,34 +27,45 @@ BATCH_SIZE = 32
 class TimestampMismatch(Exception):
     pass
 
+
+def _hms_filesafe(hms: str) -> str:
+    """Replace ':' with '.' so the timestamp is safe in Windows filenames."""
+    return hms.replace(':', '.')
+
+
 # select a media to analyse
 #  any media supported by ffmpeg may be used (video, audio, urls)
 
 
 def segment(
         media: str, batch_size: int = BATCH_SIZE, energy_ratio: float = ENERGY_RATIO,
-        start_sec: int = None, stop_sec: int = None):
+        start_sec: int = None, stop_sec: int = None,
+        cfg=None):
+    bs = cfg.segmenter.batch_size if cfg else batch_size
+    er = cfg.segmenter.energy_ratio if cfg else energy_ratio
     segmenter = Segmenter(
         vad_engine='sm',
         detect_gender=False,
-        energy_ratio=energy_ratio,
-        batch_size=batch_size)
+        energy_ratio=er,
+        batch_size=bs)
     segmentation = segmenter(media, start_sec=start_sec, stop_sec=stop_sec)
     return segmentation
 
 
 def segment_wrapper(
         media: str, batch_size: int = BATCH_SIZE,
-        energy_ratio: float = ENERGY_RATIO, segment_length_thres: int = 0):
+        energy_ratio: float = ENERGY_RATIO, segment_length_thres: int = 0,
+        cfg=None):
     ''''''
+    thres = cfg.segmenter.max_segment_length if cfg else segment_length_thres
     result = []
-    for i in get_segment_process_length_array(media, segment_length_thres):
+    for i in get_segment_process_length_array(media, thres):
         logging.info([
             'segmenting', media, 'from',
             sec2timestamp(i[0]), 'to', sec2timestamp(i[1])])
         result += segment(
             media, batch_size, energy_ratio,
-            start_sec=i[0], stop_sec=i[1])
+            start_sec=i[0], stop_sec=i[1], cfg=cfg)
         gc.collect()
         tf.keras.backend.clear_session()
     return result
@@ -63,7 +74,14 @@ def segment_wrapper(
 def extract_music(
         segmentation, segment_thres=EXTRACT_SEG_THRES,
         segment_thres_final=EXTRACT_SEG_THRES_FINAL,
-        segment_connect=EXTRACT_SEG_CONNECT, start_padding=1, end_padding=4):
+        segment_connect=EXTRACT_SEG_CONNECT, start_padding=1, end_padding=4,
+        cfg=None):
+    if cfg is not None:
+        segment_thres = cfg.extraction.seg_thres
+        segment_thres_final = cfg.extraction.seg_thres_final
+        segment_connect = cfg.extraction.seg_connect
+        start_padding = cfg.extraction.start_padding
+        end_padding = cfg.extraction.end_padding
     r = []
     # bridges noEnergy segments that are likely fragmented
     for i in range(len(segmentation)-2, 0, -1):
@@ -97,7 +115,7 @@ def extract_music(
 
 def extract_mah_stuff(
         media, segmented_stamps, outdir=None, rev=False,
-        delimited='/', timestamps=[], soundonly=True):
+        delimited='/', timestamps=[], soundonly=True, yamnet_labels=None):
     nameswitch = False
     timestamps_ext = segmented_stamps
     try:
@@ -168,39 +186,44 @@ def extract_mah_stuff(
     cmds = []
     for i in range(len(timestamps_ext)):
         oud = outdir if outdir else os.path.dirname(file)
+        os.makedirs(oud, exist_ok=True)
         encoding = ['-c:v', 'copy', '-c:a', 'copy']  # '-c:v copy -c:a copy'
         if soundonly:
             encoding = ['-vn', '-ab', '320k']  # '-vn -ab 320k'
             fileext = '.mp3'
+        yamnet_suffix = f'_{yamnet_labels[i]}' if yamnet_labels and i < len(yamnet_labels) else ''
         try:
-            prefix = timestamps[i][1].zfill(2)
+            start_hms = timestamps[i][0]
+            end_hms = timestamps_ext[i][1]
+            time_range = f'{_hms_filesafe(start_hms)}~{_hms_filesafe(end_hms)}'
             cmds.append([
                 'ffmpeg',
                 '-ss',
-                timestamps[i][0],
+                start_hms,
                 '-to',
-                timestamps_ext[i][1],
+                end_hms,
                 '-i',
                 file,
                 '-reset_timestamps', '1',
             ] + encoding + [
                 os.path.join(
-                    oud, filename + f'_{str(i).zfill(2)}_{prefix}' + fileext),
-
+                    oud, filename + f'_{str(i).zfill(2)}{yamnet_suffix}_{time_range}' + fileext),
             ] + encoding)
         except Exception:
-            prefix = str(i).zfill(2)
+            start_hms = timestamps_ext[i][0]
+            end_hms = timestamps_ext[i][1]
+            time_range = f'{_hms_filesafe(start_hms)}~{_hms_filesafe(end_hms)}'
             cmds.append([
                 'ffmpeg',
                 '-ss',
-                timestamps_ext[i][0],
+                start_hms,
                 '-to',
-                timestamps_ext[i][1],
+                end_hms,
                 '-i',
                 "{}".format(file),
             ] + encoding + [
                 "{}".format(os.path.join(
-                    oud, filename + '_' + prefix + fileext)),
+                    oud, filename + f'_{str(i).zfill(2)}{yamnet_suffix}_{time_range}' + fileext)),
             ])
     k = [Thread(target=ffmpeg, args=(x,)) for x in cmds]
     for i in k:

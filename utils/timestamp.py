@@ -5,7 +5,7 @@ from datetime import timedelta
 def mus1ca_timestamp(description, delimited = ' /'):
     timestamps = []
     for i in open(description, 'r', encoding='UTF-8'):
-        if len(re.findall('\d+:\d+', i)) == 0:
+        if len(re.findall(r'\d+:\d+', i)) == 0:
             continue
         i = i.replace('\n','').replace('」', '').replace('~',' ')\
             .replace('「', ' ').replace('『', ' ').replace('』', ' ')
